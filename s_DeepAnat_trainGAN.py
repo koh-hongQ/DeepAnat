@@ -1,3 +1,6 @@
+
+
+
 # s_DeepAnat_trainGAN.py
 #
 # (c) Ziyu Li, Qiyuan Tian, Artificial Intelligence in Neuroimaging Software, 2022
@@ -7,11 +10,11 @@ import os
 import glob
 import scipy.io as sio
 import numpy as np
-import nibabel as nib
+import nibabel as nb
 from matplotlib import pyplot as plt
 import tensorflow as tf
 
-from keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam
 
 # for compatibility
 from tensorflow.compat.v1 import ConfigProto
@@ -29,18 +32,20 @@ dpRoot = os.path.dirname(os.path.abspath('s_DeepAnat_trainGAN.py'))
 os.chdir(dpRoot)
 
 # %% subjects
-dpData = '/autofs/space/rhapsody_001/users/qtian/AINI/DeepAnat'
-subjects = sorted(glob.glob(os.path.join(dpData, 'Tract*')))
+# dpData ='c:/user/issac/pretrain_data'
+dpData = 'd:/고홍규/2025 한국외대 수학과 3학년 1학기/학부연구생/DeepAnatgit/DeepAnat/pretrain_data'
+
+subjects = sorted(glob.glob(os.path.join(dpData, 'mwu*')))
 
 # %% load data 
 train_block_in = np.array([])
 valid_block_in = np.array([])
 
-sz_block = 64    
+sz_block = 64
 sz_pad = 1
 flip = 1 # flip along x to augment training data
-input_list = ['diff_meanb0', 'diff_meandwi', 'diff_dtiL1', 'diff_dtiL2', 'diff_dtiL3',
-              'diff_dtiDwi1', 'diff_dtiDwi2', 'diff_dtiDwi3', 'diff_dtiDwi4', 'diff_dtiDwi5', 'diff_dtiDwi6']
+input_list = ['diff_dtiL1', 'diff_dtiL2', 'diff_dtiL3'
+             ]
 
 for ii in np.arange(len(subjects)):
     sj = os.path.basename(subjects[ii])
@@ -68,7 +73,7 @@ for ii in np.arange(len(subjects)):
         else:
             inputs = np.concatenate((inputs, image), axis=-1)
 
-    norm_ch = [0, 1, 5, 6, 7, 8, 9, 10]
+    norm_ch = [0, 1, 2]
     t1w_norm, tmp = utils.normalize_image(t1w, t1w, mask)
     inputs_norm, tmp = utils.normalize_image(inputs, inputs, mask, norm_ch)
     
@@ -122,14 +127,14 @@ plt.imshow(train_block_mask[47, :, :, 40, 0], clim=(0, 1), cmap='gray')
 plt.imshow(train_block_in[47, :, :, 40, 0], clim=(-2., 2.), cmap='gray')
 plt.imshow(train_block_in[47, :, :, 40, 1], clim=(-2., 2.), cmap='gray')
 plt.imshow(train_block_in[47, :, :, 40, 2], clim=(-2., 2.), cmap='gray')
-plt.imshow(train_block_in[47, :, :, 40, 3], clim=(-2., 2.), cmap='gray')
-plt.imshow(train_block_in[47, :, :, 40, 4], clim=(-2., 2.), cmap='gray')
-plt.imshow(train_block_in[47, :, :, 40, 5], clim=(-2., 2.), cmap='gray')
-plt.imshow(train_block_in[47, :, :, 40, 6], clim=(-2., 2.), cmap='gray')
-plt.imshow(train_block_in[47, :, :, 40, 7], clim=(-2., 2.), cmap='gray')
-plt.imshow(train_block_in[47, :, :, 40, 8], clim=(-2., 2.), cmap='gray')
-plt.imshow(train_block_in[47, :, :, 40, 9], clim=(-2., 2.), cmap='gray')
-plt.imshow(train_block_in[47, :, :, 40, 10], clim=(-2., 2.), cmap='gray')
+# plt.imshow(train_block_in[47, :, :, 40, 3], clim=(-2., 2.), cmap='gray')
+# plt.imshow(train_block_in[47, :, :, 40, 4], clim=(-2., 2.), cmap='gray')
+# plt.imshow(train_block_in[47, :, :, 40, 5], clim=(-2., 2.), cmap='gray')
+# plt.imshow(train_block_in[47, :, :, 40, 6], clim=(-2., 2.), cmap='gray')
+# plt.imshow(train_block_in[47, :, :, 40, 7], clim=(-2., 2.), cmap='gray')
+# plt.imshow(train_block_in[47, :, :, 40, 8], clim=(-2., 2.), cmap='gray')
+# plt.imshow(train_block_in[47, :, :, 40, 9], clim=(-2., 2.), cmap='gray')
+# plt.imshow(train_block_in[47, :, :, 40, 10], clim=(-2., 2.), cmap='gray')
 
 # set up models
 input_ch_g = train_block_in.shape[-1]
@@ -302,8 +307,8 @@ for ii in range(num_epochs):
                                             verbose = 2)
     
             model_discriminator.trainable = False
-            gtrain_output_tag = np.ones((batch_size_train, block_size[0]*3, 1)) * label_smoothing_factor
-            gtest_output_tag = np.ones((batch_size_test, block_size[0]*3, 1)) * label_smoothing_factor
+            gtrain_output_tag = np.ones((batch_size_train, sz_block*3, 1)) * label_smoothing_factor
+            gtest_output_tag = np.ones((batch_size_test, sz_block*3, 1)) * label_smoothing_factor
             
             # train the GAN
             print('----------------------------------------------------------------------')
@@ -318,13 +323,15 @@ for ii in range(num_epochs):
                                         shuffle = True, 
                                         callbacks = None, 
                                         verbose = 2)
-            
-            l1_loss_train_batch.append(history2.history['model_1_loss'])
-            gan_loss_train_batch.append(history2.history['lambda_3_loss'])
+            print(history2.history.keys())
+
+            l1_loss_train_batch.append(history2.history['model_loss'])
+            gan_loss_train_batch.append(history2.history['lambda_2_loss'])
             d_loss_train_batch.append(history1.history['loss'])
-            l1_loss_test_batch.append(history2.history['val_model_1_loss'])
-            gan_loss_test_batch.append(history2.history['val_lambda_3_loss'])
+            l1_loss_test_batch.append(history2.history['val_model_loss'])
+            gan_loss_test_batch.append(history2.history['val_lambda_2_loss'])
             d_loss_test_batch.append(history1.history['val_loss'])
+
                                 
         cnt_train += batch_size_train
         cnt_test += batch_size_test

@@ -167,11 +167,14 @@ def flatten_first2axes_shape_3d(x2d_shape):
     return output_shape
 
 def hybrid_gan_model(block_size, input_ch_g, input_ch_d, generator, discriminator,tag='hybrid_gan'):
+    if isinstance(block_size, int):
+        block_size = (block_size, block_size, block_size)
+    
     inputs = Input((block_size[0], block_size[1], block_size[2], input_ch_g))  
     bmask = Input((block_size[0], block_size[1], block_size[2], 1))
     loss_weights = Input((block_size[0], block_size[1], block_size[2], 1))
     
-    generated_block = generator([inputs, bmask, loss_weights])
+    generated_block = generator([inputs, bmask])
     
     generated_block_1 = Lambda(slice, arguments={'index':input_ch_d})(generated_block)
     generated_block_2 = Permute(dims=(2,1,3,4))(generated_block_1)
@@ -182,5 +185,7 @@ def hybrid_gan_model(block_size, input_ch_g, input_ch_d, generator, discriminato
     discriminator_outputs = Lambda(flatten_first2axes_operator_3d, 
                                    output_shape = flatten_first2axes_shape_3d)(discriminator_outputs)
     
-    model = Model(inputs=[inputs, bmask, loss_weights], outputs=[generated_block, discriminator_outputs])
+    model = Model(inputs=[inputs, bmask], outputs=[generated_block, discriminator_outputs])
+    
+
     return model
